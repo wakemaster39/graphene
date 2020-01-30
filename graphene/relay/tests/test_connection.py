@@ -1,7 +1,12 @@
+from collections import OrderedDict
+
+import pytest
+from pytest import raises
 import pytest
 
+import graphene
 from ...types import Argument, Field, Int, List, NonNull, ObjectType, Schema, String
-from ..connection import Connection, ConnectionField, PageInfo
+from ..connection import Connection, ConnectionField, PageInfo, ConnectionOptions
 from ..node import Node
 
 
@@ -49,6 +54,54 @@ def test_connection_inherit_abstracttype():
     assert MyObjectConnection._meta.name == "MyObjectConnection"
     fields = MyObjectConnection._meta.fields
     assert list(fields.keys()) == ["page_info", "edges", "extra"]
+
+
+def test_connection_meta_assignment():
+    meta = ConnectionOptions(Connection)
+
+    class BaseConnection(object):
+        extra = String()
+
+    class InheritedConnection(Connection):
+        class Meta:
+            abstract = True
+
+        @classmethod
+        def __init_subclass_with_meta__(cls, node=None, name=None, **options):
+            return super(InheritedConnection, cls).__init_subclass_with_meta__(
+                _meta=meta, node=node, name=name, **options
+            )
+
+    class MyObjectConnection(BaseConnection, InheritedConnection):
+        class Meta:
+            node = MyObject
+
+    assert id(MyObjectConnection._meta) == id(meta)
+
+
+def test_connection_meta_can_have_fields():
+    meta = ConnectionOptions(Connection)
+    meta.fields = OrderedDict([("test", graphene.String())])
+
+    class BaseConnection(object):
+        extra = String()
+
+    class InheritedConnection(Connection):
+        class Meta:
+            abstract = True
+
+        @classmethod
+        def __init_subclass_with_meta__(cls, node=None, name=None, **options):
+            return super(InheritedConnection, cls).__init_subclass_with_meta__(
+                _meta=meta, node=node, name=name, **options
+            )
+
+    class MyObjectConnection(BaseConnection, InheritedConnection):
+        class Meta:
+            node = MyObject
+
+    fields = MyObjectConnection._meta.fields
+    assert list(fields.keys()) == ["test", "page_info", "edges", "extra"]
 
 
 def test_connection_name():
